@@ -1,2 +1,3 @@
 datasets/__pycache__/util.cpython-39.pyc
 datasets/__pycache__/create_vimeo90K_tfrecord.cpython-39.pyc
+*.pyc

@@ -173,6 +173,7 @@ def _create_from_tfrecord(batch_size, file, augmentation_fns,
                           crop_size) -> tf.data.Dataset:
   """Creates a dataset from TFRecord."""
   dataset = tf.data.TFRecordDataset(file)
+  breakpoint
   dataset = dataset.map(
       _parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)  # use .map so that we can parse the whole batch at once (apply parse operation to everyone)
 

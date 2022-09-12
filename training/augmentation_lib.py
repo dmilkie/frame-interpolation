@@ -18,7 +18,7 @@ from typing import Callable, Dict, List
 import gin.tf
 import numpy as np
 import tensorflow as tf
-import tensorflow.math as tfm
+import tensorflow._api.v2.math as tfm
 import tensorflow_addons.image as tfa_image
 
 _PI = 3.141592653589793

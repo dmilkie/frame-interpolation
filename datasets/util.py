@@ -47,6 +47,18 @@ def _resample_image(image: np.ndarray, resample_image_width: int,
                   _UINT8_MAX_F).astype(np.uint8)
   return image
 
+def read_image_stack (pil_image: PIL.Image) -> np.ndarray:
+  """ Reads a PIL image stack and returns the 3D array"""
+  width, height = pil_image.size 
+  depth = pil_image.n_frames
+  myarray = np.zeros(shape=(width, height, depth))    
+  for i in range(depth):
+    pil_image.seek(i)
+    image  = np.array(pil_image)
+    myarray[:,:,i] = image.transpose()
+  return myarray
+    
+
 
 def generate_image_triplet_example(
     triplet_dict: Mapping[str, str],
@@ -101,17 +113,18 @@ def generate_image_triplet_example(
       logging.exception('Cannot read image file: %s', image_path)
       return None
     try:
-      pil_image = PIL.Image.open(io.BytesIO(byte_array))
+      pil_image = PIL.Image.open(io.BytesIO(byte_array))               
     except PIL.UnidentifiedImageError:
       logging.exception('Cannot decode image file: %s', image_path)
       return None
-    width, height = pil_image.size
+    width, height = pil_image.size                                     
+    depth = pil_image.n_frames
     pil_image_format = pil_image.format
 
     # Optionally center-crop images and downsize images
     # by `center_crop_factor`.
     if center_crop_factor > 1:
-      image = np.array(pil_image)
+      image = read_image_stack(pil_image)                                       
       quarter_height = image.shape[0] // (2 * center_crop_factor)
       quarter_width = image.shape[1] // (2 * center_crop_factor)
       image = image[quarter_height:-quarter_height,
@@ -130,7 +143,7 @@ def generate_image_triplet_example(
 
     # Optionally downsample images by `scale_factor`.
     if scale_factor > 1:
-      image = np.array(pil_image)
+      image = read_image_stack(pil_image)
       image = _resample_image(image, image.shape[1] // scale_factor,
                               image.shape[0] // scale_factor)
       pil_image = PIL.Image.fromarray(image)
@@ -145,22 +158,41 @@ def generate_image_triplet_example(
         return None
       byte_array = buffer.getvalue()
 
+    tensor = tf.convert_to_tensor(read_image_stack(pil_image), dtype=np.dtype(np.uint))
+    result = tf.io.serialize_tensor(tensor)
+
+
+    # The following functions can be used to convert a value to a type compatible
+    # with tf.train.Example.
+
+    def _bytes_feature(value):
+      """Returns a bytes_list from a string / byte."""
+      if isinstance(value, type(tf.constant(0))):
+        value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
+      return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+    def _float_feature(value):
+      """Returns a float_list from a float / double."""
+      return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+    def _int64_feature(value):
+      """Returns an int64_list from a bool / enum / int / uint."""
+      return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+      
+
     # Create tf Features.
-    image_feature = tf.train.Feature(
-        bytes_list=tf.train.BytesList(value=[byte_array]))
-    height_feature = tf.train.Feature(
-        int64_list=tf.train.Int64List(value=[height]))
-    width_feature = tf.train.Feature(
-        int64_list=tf.train.Int64List(value=[width]))
-    encoding = tf.train.Feature(
-        bytes_list=tf.train.BytesList(
-            value=[six.ensure_binary(pil_image_format.lower())]))
+    image_feature   = _bytes_feature(result)
+    height_feature  = _int64_feature(height)
+    width_feature   = _int64_feature(width)
+    depth_feature   = _int64_feature(depth)
+    encoding        = _bytes_feature(b'raw_encoding')
 
     # Update feature map.
     feature[f'{image_key}/encoded'] = image_feature
-    feature[f'{image_key}/format'] = encoding
     feature[f'{image_key}/height'] = height_feature
     feature[f'{image_key}/width'] = width_feature
+    feature[f'{image_key}/depth'] = depth_feature
+    feature[f'{image_key}/format'] = encoding
 
   # Create tf Example.
   features = tf.train.Features(feature=feature)

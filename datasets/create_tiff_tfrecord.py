@@ -69,8 +69,7 @@ Usage example:
 
 
 
-python -m frame_interpolation.datasets.create_tiff_tfrecord  --input_dir=F:\\frame_interpolation\\tiff\\sequences  --input_triplet_list_filepath=F:\\frame_interpolation\\tiff\\tri_trainlist.txt   --output_tfrecord_filepath=F:\\frame_interpolation\\tiff_TF_train\tiff_train
-
+python -m frame_interpolation.datasets.create_tiff_tfrecord  --input_dir=F:\\frame_interpolation\\tiff\\sequences  --input_triplet_list_filepath=F:\\frame_interpolation\\tiff\\tri_trainlist.txt   --output_tfrecord_filepath=F:\\frame_interpolation\\tiff_TF_train\tiff_train --num_shards=20
 
 
 """
@@ -141,12 +140,8 @@ def main(unused_argv):
     triplet_dicts.append(triplet_dict)
   p = beam.Pipeline('DirectRunner')
   (p | 'ReadInputTripletDicts' >> beam.Create(triplet_dicts)  # pylint: disable=expression-not-assigned
-   | 'GenerateSingleExample' >> beam.ParDo(
-       util.ExampleGenerator(_INTERPOLATOR_IMAGES_MAP))
-   | 'WriteToTFRecord' >> beam.io.tfrecordio.WriteToTFRecord(
-       file_path_prefix=_OUTPUT_TFRECORD_FILEPATH.value,
-       num_shards=_NUM_SHARDS.value,
-       coder=beam.coders.BytesCoder()))
+   | 'GenerateSingleExample' >> beam.ParDo(util.ExampleGenerator(_INTERPOLATOR_IMAGES_MAP))
+   | 'WriteToTFRecord' >> beam.io.tfrecordio.WriteToTFRecord(file_path_prefix=_OUTPUT_TFRECORD_FILEPATH.value, num_shards=_NUM_SHARDS.value, coder=beam.coders.BytesCoder()))
   result = p.run()
   result.wait_until_finish()
 

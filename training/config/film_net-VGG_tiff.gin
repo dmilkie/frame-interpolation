@@ -29,7 +29,7 @@ training.learning_rate_staircase = True
 training.num_steps = 3000000
 
 # in the sweep
-training_dataset.file = 'F:\\frame_interpolation\\tiff_TF_train\\tiff_train@200'
+training_dataset.file = 'F:\\frame_interpolation\\tiff_TF_train\\tiff_train@20'
 training_dataset.batch_size = 8
 training_dataset.crop_size = 256
 

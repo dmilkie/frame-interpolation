@@ -158,7 +158,7 @@ def generate_image_triplet_example(
         return None
       byte_array = buffer.getvalue()
 
-    tensor = tf.convert_to_tensor(read_image_stack(pil_image), dtype=np.dtype(np.uint))
+    tensor = tf.convert_to_tensor(read_image_stack(pil_image), dtype=tf.uint16)
     result = tf.io.serialize_tensor(tensor)
 
 

@@ -121,9 +121,9 @@ _NUM_SHARDS = flags.DEFINE_integer('num_shards',
 
 # Image key -> basename for frame interpolator: start / middle / end frames.
 _INTERPOLATOR_IMAGES_MAP = {
-    'frame_0': 'im1.tif',
-    'frame_1': 'im2.tif',
-    'frame_2': 'im3.tif',
+    'frame_0': 'im01.tif',
+    'frame_1': 'im02.tif',
+    'frame_2': 'im03.tif',
 }
 
 

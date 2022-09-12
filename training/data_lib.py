@@ -25,28 +25,34 @@ def _create_feature_map() -> Dict[str, tf.io.FixedLenFeature]:
   feature_map = {
       'frame_0/encoded':
           tf.io.FixedLenFeature((), tf.string, default_value=''),
-      'frame_0/format':
-          tf.io.FixedLenFeature((), tf.string, default_value='jpg'),
       'frame_0/height':
           tf.io.FixedLenFeature((), tf.int64, default_value=0),
       'frame_0/width':
           tf.io.FixedLenFeature((), tf.int64, default_value=0),
+      'frame_0/depth':
+          tf.io.FixedLenFeature((), tf.int64, default_value=0),
+      'frame_0/format':
+          tf.io.FixedLenFeature((), tf.string, default_value='raw_encoding'),
       'frame_1/encoded':
           tf.io.FixedLenFeature((), tf.string, default_value=''),
-      'frame_1/format':
-          tf.io.FixedLenFeature((), tf.string, default_value='jpg'),
       'frame_1/height':
           tf.io.FixedLenFeature((), tf.int64, default_value=0),
       'frame_1/width':
           tf.io.FixedLenFeature((), tf.int64, default_value=0),
+      'frame_1/depth':
+          tf.io.FixedLenFeature((), tf.int64, default_value=0),
+      'frame_1/format':
+          tf.io.FixedLenFeature((), tf.string, default_value='raw_encoding'),
       'frame_2/encoded':
           tf.io.FixedLenFeature((), tf.string, default_value=''),
-      'frame_2/format':
-          tf.io.FixedLenFeature((), tf.string, default_value='jpg'),
       'frame_2/height':
           tf.io.FixedLenFeature((), tf.int64, default_value=0),
       'frame_2/width':
           tf.io.FixedLenFeature((), tf.int64, default_value=0),
+      'frame_2/depth':
+          tf.io.FixedLenFeature((), tf.int64, default_value=0),
+      'frame_2/format':
+          tf.io.FixedLenFeature((), tf.string, default_value='raw_encoding'),
       'path':
           tf.io.FixedLenFeature((), tf.string, default_value=''),
   }
@@ -67,19 +73,36 @@ def _parse_example(sample):
   """
   feature_map = _create_feature_map()
   features = tf.io.parse_single_example(sample, feature_map)
+  if features['frame_0/format'] == 'raw_encoding' :
+    print('doing raw_decoding')
+    
   output_dict = {
-      'x0': tf.io.decode_image(features['frame_0/encoded'], dtype=tf.float32),
-      'x1': tf.io.decode_image(features['frame_2/encoded'], dtype=tf.float32),
-      'y': tf.io.decode_image(features['frame_1/encoded'], dtype=tf.float32),
-      # The fractional time value of frame_1 is not included in our tfrecords,
-      # but is always at 0.5. The model will expect this to be specificed, so
-      # we insert it here.
-      'time': 0.5,
-      # Store the original mid frame filepath for identifying examples.
-      'path': features['path'],
+    'x0': tf.io.decode_raw(features['frame_0/encoded'], tf.uint16),
+    'x1': tf.io.decode_raw(features['frame_2/encoded'], tf.uint16),
+    'y':  tf.io.decode_raw(features['frame_1/encoded'], tf.uint16),
+    # The fractional time value of frame_1 is not included in our tfrecords,
+    # but is always at 0.5. The model will expect this to be specificed, so
+    # we insert it here.
+    'time': 0.5,
+    # Store the original mid frame filepath for identifying examples.
+    'path': features['path'],
   }
-
+    
   return output_dict
+    
+  # else : 
+  #   output_dict = {
+  #     'x0': tf.io.decode_image(features['frame_0/encoded'], dtype=tf.float32),
+  #     'x1': tf.io.decode_image(features['frame_2/encoded'], dtype=tf.float32),
+  #     'y': tf.io.decode_image(features['frame_1/encoded'], dtype=tf.float32),
+  #     # The fractional time value of frame_1 is not included in our tfrecords,
+  #     # but is always at 0.5. The model will expect this to be specificed, so
+  #     # we insert it here.
+  #     'time': 0.5,
+  #     # Store the original mid frame filepath for identifying examples.
+  #     'path': features['path'],
+  #   }
+  #   return output_dict
 
 
 def _random_crop_images(crop_size: int, images: tf.Tensor,
@@ -151,7 +174,7 @@ def _create_from_tfrecord(batch_size, file, augmentation_fns,
   """Creates a dataset from TFRecord."""
   dataset = tf.data.TFRecordDataset(file)
   dataset = dataset.map(
-      _parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+      _parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)  # use .map so that we can parse the whole batch at once (apply parse operation to everyone)
 
   # Perform data_augmentation before cropping and batching
   if augmentation_fns is not None:

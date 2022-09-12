@@ -18,6 +18,7 @@ from typing import Callable, Dict, List, Optional
 from absl import logging
 import gin.tf
 import tensorflow as tf
+import pdb
 
 
 def _create_feature_map() -> Dict[str, tf.io.FixedLenFeature]:
@@ -74,12 +75,13 @@ def _parse_example(sample):
   feature_map = _create_feature_map()
   features = tf.io.parse_single_example(sample, feature_map)
   if features['frame_0/format'] == 'raw_encoding' :
-    print('doing raw_decoding')
+    print('doing raw_decoding, please please stop here')
+    
     
   output_dict = {
-    'x0': tf.io.decode_raw(features['frame_0/encoded'], tf.uint16),
-    'x1': tf.io.decode_raw(features['frame_2/encoded'], tf.uint16),
-    'y':  tf.io.decode_raw(features['frame_1/encoded'], tf.uint16),
+    'x0': tf.io.parse_tensor(features['frame_0/encoded'], tf.dtypes.int32),
+    'x1': tf.io.parse_tensor(features['frame_2/encoded'], tf.dtypes.int32),
+    'y':  tf.io.parse_tensor(features['frame_1/encoded'], tf.dtypes.int32),
     # The fractional time value of frame_1 is not included in our tfrecords,
     # but is always at 0.5. The model will expect this to be specificed, so
     # we insert it here.
@@ -172,8 +174,9 @@ def apply_data_augmentation(
 def _create_from_tfrecord(batch_size, file, augmentation_fns,
                           crop_size) -> tf.data.Dataset:
   """Creates a dataset from TFRecord."""
+  
   dataset = tf.data.TFRecordDataset(file)
-  breakpoint
+  
   dataset = dataset.map(
       _parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)  # use .map so that we can parse the whole batch at once (apply parse operation to everyone)
 
@@ -216,6 +219,8 @@ def _create_from_sharded_tfrecord(batch_size,
   """Creates a dataset from a sharded tfrecord."""
   dataset = tf.data.Dataset.from_tensor_slices(
       _generate_sharded_filenames(file))
+  
+# you can use Dataset.interleave() to process many input files concurrently.
 
   # pylint: disable=g-long-lambda
   dataset = dataset.interleave(
@@ -263,6 +268,7 @@ def create_training_dataset(
     'x0', 'x1', ground truth 'y' and time of the ground truth 'time'=[0,1] in a
     dictionary of tensors.
   """
+
   if file:
     logging.warning('gin-configurable training_dataset.file is deprecated. '
                     'Use training_dataset.files instead.')

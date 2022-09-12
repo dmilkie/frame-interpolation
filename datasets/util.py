@@ -56,6 +56,7 @@ def read_image_stack (pil_image: PIL.Image) -> np.ndarray:
     pil_image.seek(i)
     image  = np.array(pil_image)
     myarray[:,:,i] = image.transpose()
+    myarray = myarray.astype('int32')  # have to convert to a data type that tf likes (u8 or signed int or floating)
   return myarray
     
 

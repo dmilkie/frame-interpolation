@@ -198,7 +198,7 @@ def train_loop(
       epoch=tf.Variable(0, dtype=tf.int64, trainable=False),
       training_finished=tf.Variable(False, dtype=tf.bool, trainable=False))
 
-  logging.info('Restoring old model (if exists) ...')
+  
   checkpoint_manager = tf.train.CheckpointManager(
       checkpoint,
       directory=train_folder,
@@ -207,7 +207,10 @@ def train_loop(
 
   with strategy.scope():
     if checkpoint_manager.latest_checkpoint:
+      logging.info('Restoring old model ...')
       checkpoint.restore(checkpoint_manager.latest_checkpoint)
+    else:
+      logging.info('Starting new model (old model does not exist) ...')
 
   logging.info('Creating Timer ...')
   timer = tf.estimator.SecondOrStepTimer(every_steps=timing_frequency)
@@ -227,7 +230,7 @@ def train_loop(
 
       if iterations % logging_frequency == 0:
         # Log epoch, total iterations and batch index.
-        logging.info('epoch %d; iterations %d; i_batch %d',
+        logging.info('epoch %4d; iterations %5d; i_batch %4d',
                      checkpoint.epoch.numpy(), iterations,
                      i_batch)
 
@@ -327,8 +330,8 @@ def train(strategy: tf.distribute.Strategy, train_folder: str,
       train_folder=train_folder,
       saved_model_folder=saved_model_folder,
       num_iterations=n_iterations,
-      save_summaries_frequency=3000,
-      save_checkpoint_frequency=3000)
+      save_summaries_frequency=5,
+      save_checkpoint_frequency=5) # was 3000 for both
 
 
 def get_strategy(mode) -> tf.distribute.Strategy:

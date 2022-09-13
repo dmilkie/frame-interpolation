@@ -207,7 +207,7 @@ def train_loop(
 
   with strategy.scope():
     if checkpoint_manager.latest_checkpoint:
-      logging.info('Restoring old model ...')
+      logging.info('Restoring old model from %s ...' % train_folder)
       checkpoint.restore(checkpoint_manager.latest_checkpoint)
     else:
       logging.info('Starting new model (old model does not exist) ...')

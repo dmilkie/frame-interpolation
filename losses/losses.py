@@ -43,7 +43,7 @@ def vgg_loss(example: Mapping[str, tf.Tensor],
   Returns:
     The perceptual loss.
   """
-  return vgg19.vgg_loss(prediction['image'], example['y'], vgg_model_file,
+  return vgg19.vgg_loss(prediction['image'], tf.cast(example['y'], dtype=tf.float32) , vgg_model_file,
                         weights)
 
 
@@ -71,7 +71,7 @@ def style_loss(example: Mapping[str, tf.Tensor],
 
 def l1_loss(example: Mapping[str, tf.Tensor],
             prediction: Mapping[str, tf.Tensor]) -> tf.Tensor:
-  return tf.reduce_mean(tf.abs(prediction['image'] - example['y']))
+  return tf.reduce_mean(tf.abs(prediction['image'] - tf.cast(example['y'], dtype=tf.float32) ))
 
 
 def l1_warped_loss(example: Mapping[str, tf.Tensor],
@@ -89,15 +89,15 @@ def l1_warped_loss(example: Mapping[str, tf.Tensor],
   """
   loss = tf.constant(0.0, dtype=tf.float32)
   if 'x0_warped' in prediction:
-    loss += tf.reduce_mean(tf.abs(prediction['x0_warped'] - example['y']))
+    loss += tf.reduce_mean(tf.abs(prediction['x0_warped'] - tf.cast(example['y'], dtype=tf.float32) ))
   if 'x1_warped' in prediction:
-    loss += tf.reduce_mean(tf.abs(prediction['x1_warped'] - example['y']))
+    loss += tf.reduce_mean(tf.abs(prediction['x1_warped'] - tf.cast(example['y'], dtype=tf.float32) ))
   return loss
 
 
 def l2_loss(example: Mapping[str, tf.Tensor],
             prediction: Mapping[str, tf.Tensor]) -> tf.Tensor:
-  return tf.reduce_mean(tf.square(prediction['image'] - example['y']))
+  return tf.reduce_mean(tf.square(prediction['image'] - tf.cast(example['y'], dtype=tf.float32) ))
 
 
 def ssim_loss(example: Mapping[str, tf.Tensor],

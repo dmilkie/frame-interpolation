@@ -75,7 +75,7 @@ def _parse_example(sample):
   feature_map = _create_feature_map()
   features = tf.io.parse_single_example(sample, feature_map)
   if features['frame_0/format'] == 'raw_encoding' :
-    print('doing raw_decoding, please please stop here')
+    print('doing raw_decoding')
     
     
   output_dict = {

@@ -25,10 +25,29 @@ import PIL.Image
 import six
 from skimage import transform
 import tensorflow as tf
+from pathlib import Path
+
 
 _UINT8_MAX_F = float(np.iinfo(np.uint8).max)
 _GAMMA = 2.2
 
+# The following functions can be used to convert a value to a type compatible
+# with tf.train.Example.
+
+def _bytes_feature(value):
+  """Returns a bytes_list from a string / byte."""
+  if isinstance(value, type(tf.constant(0))):
+    value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _float_feature(value):
+  """Returns a float_list from a float / double."""
+  return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+def _int64_feature(value):
+  """Returns an int64_list from a bool / enum / int / uint."""
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+  
 
 def _resample_image(image: np.ndarray, resample_image_width: int,
                     resample_image_height: int) -> np.ndarray:
@@ -159,27 +178,9 @@ def generate_image_triplet_example(
         return None
       byte_array = buffer.getvalue()
 
-    tensor = tf.convert_to_tensor(read_image_stack(pil_image), dtype=tf.uint16)
+    tensor = tf.convert_to_tensor(read_image_stack(pil_image), dtype=tf.int32)
     result = tf.io.serialize_tensor(tensor)
-
-
-    # The following functions can be used to convert a value to a type compatible
-    # with tf.train.Example.
-
-    def _bytes_feature(value):
-      """Returns a bytes_list from a string / byte."""
-      if isinstance(value, type(tf.constant(0))):
-        value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
-      return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
-    def _float_feature(value):
-      """Returns a float_list from a float / double."""
-      return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
-
-    def _int64_feature(value):
-      """Returns an int64_list from a bool / enum / int / uint."""
-      return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-      
+    print("Read file: %s" % Path(image_path))
 
     # Create tf Features.
     image_feature   = _bytes_feature(result)

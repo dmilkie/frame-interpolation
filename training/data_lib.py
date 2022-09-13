@@ -75,18 +75,18 @@ def _parse_example(sample):
   feature_map = _create_feature_map()
   features = tf.io.parse_single_example(sample, feature_map)
   if features['frame_0/format'] == 'raw_encoding' :
-    print('doing raw_decoding....')
+    print('Reading serialized tf.Example.  Found raw_encoding in frame_0,_1,_2.  Doing decoding into float32 Tensor....')
     
     
   output_dict = {
-    'x0': tf.io.parse_tensor(features['frame_0/encoded'], tf.dtypes.int32),
-    'x1': tf.io.parse_tensor(features['frame_2/encoded'], tf.dtypes.int32),
-    'y':  tf.io.parse_tensor(features['frame_1/encoded'], tf.dtypes.int32),
+    'x0': tf.cast(tf.io.parse_tensor(features['frame_0/encoded'], tf.dtypes.uint8), dtype=tf.float32),
+    'x1': tf.cast(tf.io.parse_tensor(features['frame_2/encoded'], tf.dtypes.uint8), dtype=tf.float32),
+    'y':  tf.cast(tf.io.parse_tensor(features['frame_1/encoded'], tf.dtypes.uint8), dtype=tf.float32),
     # The fractional time value of frame_1 is not included in our tfrecords,
     # but is always at 0.5. The model will expect this to be specificed, so
     # we insert it here.
     'time': 0.5,
-    # Store the original mid frame filepath for identifying examples.
+    # Store the original mid frame filepath for identifying examples.d\
     'path': features['path'],
   }
     

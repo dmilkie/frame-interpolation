@@ -67,15 +67,16 @@ def _resample_image(image: np.ndarray, resample_image_width: int,
   return image
 
 def read_image_stack (pil_image: PIL.Image) -> np.ndarray:
-  """ Reads a PIL image stack and returns the 3D array"""
+  """ Reads a PIL image stack and returns the 3D array as [width, height, depth] ordered"""
   width, height = pil_image.size 
   depth = pil_image.n_frames
-  myarray = np.zeros(shape=(width, height, depth))    
+  myarray = np.zeros(shape=(width, height, depth), dtype=np.float32)    
   for i in range(depth):
     pil_image.seek(i)
     image  = np.array(pil_image)
     myarray[:,:,i] = image.transpose()
-    myarray = myarray.astype('int32')  # have to convert to a data type that tf likes (u8 or signed int or floating)
+    myarray = myarray.astype(np.float32)  # have to convert to a data type that tf likes (u8 or signed int or floating)
+  
   return myarray
     
 
@@ -116,6 +117,29 @@ def generate_image_triplet_example(
   mid_frame_path = os.path.dirname(triplet_dict['frame_1'])
   feature['path'] = tf.train.Feature(
       bytes_list=tf.train.BytesList(value=[six.ensure_binary(mid_frame_path)]))
+
+  max_pixel_value = 0.0
+  for image_key, image_path in triplet_dict.items():
+    if not tf.io.gfile.exists(image_path):
+      logging.error('File not found: %s', image_path)
+      return None
+
+    # Note: we need both the raw bytes and the image size.
+    # PIL.Image does not expose a method to grab the original bytes.
+    # (Also it is not aware of non-local file systems.)
+    # So we read with tf.io.gfile.GFile to get the bytes, and then wrap the
+    # bytes in BytesIO to let PIL.Image open the image.
+    try:
+      byte_array = tf.io.gfile.GFile(image_path, 'rb').read()
+    except tf.errors.InvalidArgumentError:
+      logging.exception('Cannot read image file: %s', image_path)
+      return None
+    try:
+      pil_image = PIL.Image.open(io.BytesIO(byte_array))               
+    except PIL.UnidentifiedImageError:
+      logging.exception('Cannot decode image file: %s', image_path)
+      return None
+    max_pixel_value = max(np.max(read_image_stack(pil_image)), max_pixel_value)
 
   for image_key, image_path in triplet_dict.items():
     if not tf.io.gfile.exists(image_path):
@@ -178,7 +202,8 @@ def generate_image_triplet_example(
         return None
       byte_array = buffer.getvalue()
 
-    tensor = tf.convert_to_tensor(read_image_stack(pil_image), dtype=tf.int32)
+    nparray = read_image_stack(pil_image).astype(np.float32) / max_pixel_value * _UINT8_MAX_F # rescale to [0..255]
+    tensor = tf.convert_to_tensor(nparray, dtype=tf.uint8)
     result = tf.io.serialize_tensor(tensor)
     print("Read file: %s" % Path(image_path))
 

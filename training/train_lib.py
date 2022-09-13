@@ -107,7 +107,7 @@ def _summary_writer(summaries_dict: Dict[Text, Any]) -> None:
     tf.summary.scalar(key, scalars)
   # Adds image summaries.
   for key, images in summaries_dict['image_summaries'].items():
-    tf.summary.image(key, tf.clip_by_value(tf.cast(images, dtype=tf.float32), 0.0, 1.0))   # I have a real bad feeling about type casting "images" to float and then clipping to 0->1
+    tf.summary.image(key, tf.clip_by_value(images, 0.0, 1.0))   
     tf.summary.histogram(key + '_h', images)
 
 

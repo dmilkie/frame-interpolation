@@ -170,29 +170,24 @@ def generate_image_triplet_example(
     # Optionally center-crop images and downsize images
     # by `center_crop_factor`.
     if center_crop_factor > 1:
-      image = read_image_stack(pil_image)                                       
-      quarter_height = image.shape[0] // (2 * center_crop_factor)
-      quarter_width = image.shape[1] // (2 * center_crop_factor)
-      image = image[quarter_height:-quarter_height,
-                    quarter_width:-quarter_width, :]
-      pil_image = PIL.Image.fromarray(image)
 
-      # Update image properties.
-      height, width, _ = image.shape
-      buffer = io.BytesIO()
-      try:
-        pil_image.save(buffer, format='PNG')
-      except OSError:
-        logging.exception('Cannot encode image file: %s', image_path)
-        return None
-      byte_array = buffer.getvalue()
+      quarter_depth  = nparray.shape[0] // (2 * center_crop_factor)                                       
+      quarter_height = nparray.shape[1] // (2 * center_crop_factor)
+      quarter_width  = nparray.shape[2] // (2 * center_crop_factor)
+      
+      nparray = nparray[quarter_depth:-quarter_depth,
+                        quarter_height:-quarter_height,
+                        quarter_width:-quarter_width]
+
+      [depth, height, width] = nparray.shape
 
     # Optionally downsample images by `scale_factor`.
     if scale_factor > 1:
       nparray = _resample_image(nparray, resample_image_depth=depth // scale_factor,
-                                         resample_image_width=width // scale_factor,
-                                         resample_image_height=height // scale_factor)
-   
+                                         resample_image_height=height // scale_factor,
+                                         resample_image_width=width // scale_factor)
+
+      [depth, height, width] = nparray.shape
       
 
     tensor = tf.convert_to_tensor(nparray, dtype=tf.uint8)

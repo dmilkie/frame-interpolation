@@ -50,14 +50,14 @@ def _int64_feature(value):
   
 
 def _resample_image(image: np.ndarray, resample_image_width: int,
-                    resample_image_height: int) -> np.ndarray:
+                    resample_image_height: int, resample_image_depth: int) -> np.ndarray:
   """Re-samples and returns an `image` to be `resample_image_size`."""
   # Convert image from uint8 gamma [0..255] to float linear [0..1].
   image = image.astype(np.float32) / _UINT8_MAX_F
   image = np.power(np.clip(image, 0, 1), _GAMMA)
 
   # Re-size the image
-  resample_image_size = (resample_image_height, resample_image_width)
+  resample_image_size = (resample_image_depth, resample_image_height, resample_image_width)
   image = transform.resize_local_mean(image, resample_image_size)
 
   # Convert back from float linear [0..1] to uint8 gamma [0..255].
@@ -67,7 +67,7 @@ def _resample_image(image: np.ndarray, resample_image_width: int,
   return image
 
 def read_image_stack (pil_image: PIL.Image) -> np.ndarray:
-  """ Reads a PIL image stack and returns the 3D array as [width, height, depth] ordered"""
+  """ Reads a PIL image stack and returns np.float32 3D array as [width, height, depth] ordered"""
   width, height = pil_image.size 
   depth = pil_image.n_frames
   myarray = np.zeros(shape=(width, height, depth), dtype=np.float32)    
@@ -164,6 +164,8 @@ def generate_image_triplet_example(
     width, height = pil_image.size                                     
     depth = pil_image.n_frames
     pil_image_format = pil_image.format
+    
+    nparray = read_image_stack(pil_image).astype(np.float32) / max_pixel_value * _UINT8_MAX_F # rescale to [0..255]
 
     # Optionally center-crop images and downsize images
     # by `center_crop_factor`.
@@ -187,25 +189,15 @@ def generate_image_triplet_example(
 
     # Optionally downsample images by `scale_factor`.
     if scale_factor > 1:
-      image = read_image_stack(pil_image)
-      image = _resample_image(image, image.shape[1] // scale_factor,
-                              image.shape[0] // scale_factor)
-      pil_image = PIL.Image.fromarray(image)
+      nparray = _resample_image(nparray, resample_image_depth=depth // scale_factor,
+                                         resample_image_width=width // scale_factor,
+                                         resample_image_height=height // scale_factor)
+   
+      
 
-      # Update image properties.
-      height, width, _ = image.shape
-      buffer = io.BytesIO()
-      try:
-        pil_image.save(buffer, format='PNG')
-      except OSError:
-        logging.exception('Cannot encode image file: %s', image_path)
-        return None
-      byte_array = buffer.getvalue()
-
-    nparray = read_image_stack(pil_image).astype(np.float32) / max_pixel_value * _UINT8_MAX_F # rescale to [0..255]
     tensor = tf.convert_to_tensor(nparray, dtype=tf.uint8)
     result = tf.io.serialize_tensor(tensor)
-    print("Read file: %s" % Path(image_path))
+    print("Read file: {}, output size X Y Z: {} ".format(Path(image_path), tensor.shape))
 
     # Create tf Features.
     image_feature   = _bytes_feature(result)

@@ -82,7 +82,11 @@ def _parse_example(sample):
     'x0': tf.cast(tf.io.parse_tensor(features['frame_0/encoded'], tf.dtypes.uint8), dtype=tf.float32),
     'x1': tf.cast(tf.io.parse_tensor(features['frame_2/encoded'], tf.dtypes.uint8), dtype=tf.float32),
     'y':  tf.cast(tf.io.parse_tensor(features['frame_1/encoded'], tf.dtypes.uint8), dtype=tf.float32),
-    # The fractional time value of frame_1 is not included in our tfrecords,
+    #     # decode_image(..., dtype=tf.float32) will convert image to [0..1] range
+    #     which is why we had already scaled the U16 triplet to the maximum value of the triplet to [0.255] scale. 
+    # 
+    # 
+    #   # The fractional time value of frame_1 is not included in our tfrecords,
     # but is always at 0.5. The model will expect this to be specificed, so
     # we insert it here.
     'time': 0.5,
@@ -97,6 +101,8 @@ def _parse_example(sample):
   #     'x0': tf.io.decode_image(features['frame_0/encoded'], dtype=tf.float32),
   #     'x1': tf.io.decode_image(features['frame_2/encoded'], dtype=tf.float32),
   #     'y': tf.io.decode_image(features['frame_1/encoded'], dtype=tf.float32),
+  #     # decode_image(..., dtype=tf.float32) will convert image to [0..1] range
+  # 
   #     # The fractional time value of frame_1 is not included in our tfrecords,
   #     # but is always at 0.5. The model will expect this to be specificed, so
   #     # we insert it here.

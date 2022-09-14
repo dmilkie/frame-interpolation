@@ -118,6 +118,11 @@ _NUM_SHARDS = flags.DEFINE_integer('num_shards',
     default=200, # set to 3 for vimeo_test, and 200 for vimeo_train.
     help='Number of shards used for the output.')
 
+_SCALE_FACTOR = flags.DEFINE_float('scale_factor',
+    default=1,
+    lower_bound=1,
+    help='Factor by which to reduce the resolution of input images before saving in TFRecord file.')
+
 # Image key -> basename for frame interpolator: start / middle / end frames.
 _INTERPOLATOR_IMAGES_MAP = {
     'frame_0': 'im01.tif',
@@ -140,7 +145,7 @@ def main(unused_argv):
     triplet_dicts.append(triplet_dict)
   p = beam.Pipeline('DirectRunner')
   (p | 'ReadInputTripletDicts' >> beam.Create(triplet_dicts)  # pylint: disable=expression-not-assigned
-   | 'GenerateSingleExample' >> beam.ParDo(util.ExampleGenerator(_INTERPOLATOR_IMAGES_MAP))
+   | 'GenerateSingleExample' >> beam.ParDo(util.ExampleGenerator(_INTERPOLATOR_IMAGES_MAP, scale_factor=_SCALE_FACTOR.value))
    | 'WriteToTFRecord' >> beam.io.tfrecordio.WriteToTFRecord(file_path_prefix=_OUTPUT_TFRECORD_FILEPATH.value, num_shards=_NUM_SHARDS.value, coder=beam.coders.BytesCoder()))
   result = p.run()
   result.wait_until_finish()

@@ -31,7 +31,7 @@ training.num_steps = 3000000
 # in the sweep
 training_dataset.file = 'F:\\frame_interpolation\\tiff_TF_train\\tiff_train@20'
 training_dataset.batch_size = 8
-training_dataset.crop_size = [256, 256, 128] # I'm guessing power of 2 is best performance
+training_dataset.crop_size = [128, 512, 256] # I'm guessing power of 2 is best performance. orginial images are 201, 672, 512
 
 eval_datasets.batch_size = 1
 eval_datasets.max_examples = -1

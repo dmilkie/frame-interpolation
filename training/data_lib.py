@@ -18,7 +18,7 @@ from typing import Callable, Dict, List, Optional
 from absl import logging
 import gin.tf
 import tensorflow as tf
-
+import pdb
 
 
 def _create_feature_map() -> Dict[str, tf.io.FixedLenFeature]:
@@ -127,7 +127,8 @@ def _random_crop_images(crop_size: List[int], images: tf.Tensor,
   """
   
   if len(crop_size) != 0:
-    crop_shape = tf.constant([crop_size + total_channel_size])
+    crop_size.append(total_channel_size)  # oh boy.  .append doesn't return a value!? so y=x.append(2) returns None. ugh.
+    crop_shape = tf.constant(crop_size)
     images = tf.image.random_crop(value=images, size=crop_shape)
   return images
 
@@ -147,13 +148,14 @@ def crop_example(example: tf.Tensor, crop_size: List[int], channel_count: int,
   """
   if crop_keys is None:
     crop_keys = ['x0', 'x1', 'y']
-    
+
+  
   channels = [channel_count for i in crop_keys]  # channel count = 3 for RGB, =1 for grayscale
   
   # Stack images along channel axis, and perform a random crop once.
   image_to_crop = [example[key] for key in crop_keys]
   stacked_images = tf.concat(image_to_crop, axis=-1)
-  cropped_images = _random_crop_images(crop_size, stacked_images, sum(channels))
+  cropped_images = _random_crop_images(crop_size, stacked_images, total_channel_size=sum(channels))
   cropped_images = tf.split(
       cropped_images, num_or_size_splits=channels, axis=-1)
   for key, cropped_image in zip(crop_keys, cropped_images):

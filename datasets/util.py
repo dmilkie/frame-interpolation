@@ -57,7 +57,7 @@ def _resample_image(image: np.ndarray, resample_image_width: int,
   image = np.power(np.clip(image, 0, 1), _GAMMA)
 
   # Re-size the image
-  resample_image_size = (resample_image_depth, resample_image_height, resample_image_width)
+  resample_image_size = [resample_image_depth, resample_image_height, resample_image_width]
   image = transform.resize_local_mean(image, resample_image_size)
 
   # Convert back from float linear [0..1] to uint8 gamma [0..255].
@@ -67,16 +67,14 @@ def _resample_image(image: np.ndarray, resample_image_width: int,
   return image
 
 def read_image_stack (pil_image: PIL.Image) -> np.ndarray:
-  """ Reads a PIL image stack and returns np.float32 3D array as [width, height, depth] ordered"""
+  """ Reads a PIL image stack and returns np.float32 3D array as [depth, height, width] Z,Y,X ordered"""
   width, height = pil_image.size 
   depth = pil_image.n_frames
-  myarray = np.zeros(shape=(width, height, depth), dtype=np.float32)    
+  myarray = np.zeros(shape=(depth, height, width), dtype=np.float32)  # have to convert to a data type that tf likes (u8 or signed int or floating)
   for i in range(depth):
     pil_image.seek(i)
     image  = np.array(pil_image)
-    myarray[:,:,i] = image.transpose()
-    myarray = myarray.astype(np.float32)  # have to convert to a data type that tf likes (u8 or signed int or floating)
-  
+    myarray[i,:,:] = image
   return myarray
     
 
@@ -165,7 +163,7 @@ def generate_image_triplet_example(
     depth = pil_image.n_frames
     pil_image_format = pil_image.format
     
-    nparray = read_image_stack(pil_image).astype(np.float32) / max_pixel_value * _UINT8_MAX_F # rescale to [0..255]
+    nparray = read_image_stack(pil_image) / max_pixel_value # rescale to [0..1]
 
     # Optionally center-crop images and downsize images
     # by `center_crop_factor`.
@@ -183,23 +181,24 @@ def generate_image_triplet_example(
 
     # Optionally downsample images by `scale_factor`.
     if scale_factor > 1:
-      nparray = _resample_image(nparray, resample_image_depth=depth // scale_factor,
-                                         resample_image_height=height // scale_factor,
-                                         resample_image_width=width // scale_factor)
+      nparray = _resample_image(nparray, resample_image_depth= round(depth  / scale_factor),
+                                         resample_image_height=round(height / scale_factor),
+                                         resample_image_width= round(width  / scale_factor)
+                                         )
 
       [depth, height, width] = nparray.shape
       
-
-    tensor = tf.convert_to_tensor(nparray, dtype=tf.uint8)
+# don't convert to u8.  leave as float32 [0..1] range and avoid the confusion
+    tensor = tf.convert_to_tensor(nparray, dtype=tf.float32)
     result = tf.io.serialize_tensor(tensor)
-    print("Read file: {}, output size X Y Z: {} ".format(Path(image_path), tensor.shape))
-
+    logging.info("Read file: {}, output size Z Y X: {} ".format(Path(image_path), tensor.shape))
+    
     # Create tf Features.
     image_feature   = _bytes_feature(result)
     height_feature  = _int64_feature(height)
     width_feature   = _int64_feature(width)
     depth_feature   = _int64_feature(depth)
-    encoding        = _bytes_feature(b'raw_encoding')
+    encoding        = _bytes_feature(b'raw_encoding_float32')
 
     # Update feature map.
     feature[f'{image_key}/encoded'] = image_feature

@@ -18,7 +18,7 @@ from typing import Callable, Dict, List, Optional
 from absl import logging
 import gin.tf
 import tensorflow as tf
-import pdb
+
 
 
 def _create_feature_map() -> Dict[str, tf.io.FixedLenFeature]:
@@ -74,16 +74,16 @@ def _parse_example(sample):
   """
   feature_map = _create_feature_map()
   features = tf.io.parse_single_example(sample, feature_map)
-  if features['frame_0/format'] == 'raw_encoding' :
-    print('Reading serialized tf.Example.  Found raw_encoding in frame_0,_1,_2.  Doing decoding into float32 Tensor....')
-    
+  if features['frame_0/format'] == 'raw_encoding_float32' :
+    print('Reading serialized tf.Example.  Found raw_encoding_float32 in frame_0.  Doing decoding into float32 Tensor....')
+ 
     
   output_dict = {
-    'x0': tf.cast(tf.io.parse_tensor(features['frame_0/encoded'], tf.dtypes.uint8), dtype=tf.float32),
-    'x1': tf.cast(tf.io.parse_tensor(features['frame_2/encoded'], tf.dtypes.uint8), dtype=tf.float32),
-    'y':  tf.cast(tf.io.parse_tensor(features['frame_1/encoded'], tf.dtypes.uint8), dtype=tf.float32),
+    'x0': tf.io.parse_tensor(features['frame_0/encoded'], tf.dtypes.float32),
+    'x1': tf.io.parse_tensor(features['frame_2/encoded'], tf.dtypes.float32),
+    'y':  tf.io.parse_tensor(features['frame_1/encoded'], tf.dtypes.float32),
     #     # decode_image(..., dtype=tf.float32) will convert image to [0..1] range
-    #     which is why we had already scaled the U16 triplet to the maximum value of the triplet to [0.255] scale. 
+    #     which is why we had already scaled the U16 triplet to the maximum value of the triplet to [0..1] scale. 
     # 
     # 
     #   # The fractional time value of frame_1 is not included in our tfrecords,
@@ -113,23 +113,33 @@ def _parse_example(sample):
   #   return output_dict
 
 
-def _random_crop_images(crop_size: int, images: tf.Tensor,
+def _random_crop_images(crop_size: List[int], images: tf.Tensor,
                         total_channel_size: int) -> tf.Tensor:
-  """Crops the tensor with random offset to the given size."""
-  if crop_size > 0:
-    crop_shape = tf.constant([crop_size, crop_size, total_channel_size])
-    images = tf.image.random_crop(images, crop_shape)
+  """Crops a concatenated stack of images (e.g. x0, x1, y) using random offsets.
+
+  Args:
+      crop_size List[int]): size of each output image dimension (e.g. depth, height, width, ...) 
+      images (tf.Tensor): a concatenated stack of images
+      total_channel_size (int): the number of stacked images
+
+  Returns:
+      tf.Tensor: stack of images, each individually randomly cropped 
+  """
+  
+  if len(crop_size) != 0:
+    crop_shape = tf.constant([crop_size + total_channel_size])
+    images = tf.image.random_crop(value=images, size=crop_shape)
   return images
 
 
-def crop_example(example: tf.Tensor, crop_size: int,
-                 crop_keys: Optional[List[str]] = None):
+def crop_example(example: tf.Tensor, crop_size: List[int], channel_count: int,
+                 crop_keys: Optional[List[str]] = None
+                 ):
   """Random crops selected images in the example to given size and keys.
 
   Args:
-    example: Input tensor representing images to be cropped.
-    crop_size: The size to crop images to. This value is used for both
-      height and width.
+    example: Input tensor representing a stack of images to be cropped.
+    crop_size: The size to crop images to. 
     crop_keys: The images in the input example to crop.
 
   Returns:
@@ -137,8 +147,9 @@ def crop_example(example: tf.Tensor, crop_size: int,
   """
   if crop_keys is None:
     crop_keys = ['x0', 'x1', 'y']
-    channels = [3, 3, 3]
-
+    
+  channels = [channel_count for i in crop_keys]  # channel count = 3 for RGB, =1 for grayscale
+  
   # Stack images along channel axis, and perform a random crop once.
   image_to_crop = [example[key] for key in crop_keys]
   stacked_images = tf.concat(image_to_crop, axis=-1)
@@ -192,9 +203,9 @@ def _create_from_tfrecord(batch_size, file, augmentation_fns,
         lambda x: apply_data_augmentation(augmentation_fns, x),
         num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-  if crop_size > 0:
+  if len(crop_size) != 0:
     dataset = dataset.map(
-        lambda x: crop_example(x, crop_size=crop_size),
+        lambda x: crop_example(x, crop_size=crop_size, channel_count=1),
         num_parallel_calls=tf.data.experimental.AUTOTUNE)
   dataset = dataset.batch(batch_size, drop_remainder=True)
   return dataset

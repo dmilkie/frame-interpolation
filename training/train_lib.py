@@ -107,6 +107,7 @@ def _summary_writer(summaries_dict: Dict[Text, Any]) -> None:
     tf.summary.scalar(key, scalars)
   # Adds image summaries.
   for key, images in summaries_dict['image_summaries'].items():
+    images = tf.reduce_max(images, axis=0) # Maximum intensity projection along Z
     tf.summary.image(key, tf.clip_by_value(images, 0.0, 1.0))   
     tf.summary.histogram(key + '_h', images)
 

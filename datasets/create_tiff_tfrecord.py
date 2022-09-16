@@ -80,6 +80,7 @@ from absl import app
 from absl import flags
 from absl import logging
 import apache_beam as beam
+from apache_beam.options.pipeline_options import PipelineOptions
 import numpy as np
 import tensorflow as tf
 
@@ -143,7 +144,10 @@ def main(unused_argv):
         for image_key, image_basename in _INTERPOLATOR_IMAGES_MAP.items()
     }
     triplet_dicts.append(triplet_dict)
-  p = beam.Pipeline('DirectRunner')
+  
+  print(f"scale_factor={_SCALE_FACTOR.value}  num_shards={_NUM_SHARDS.value}" )
+  # pipeline_options = PipelineOptions(['--direct_num_workers', '2', '--direct_running_mode', 'multi_threading'])  # number of parallel running workers. 0 = one for each CPU 
+  p = beam.Pipeline('DirectRunner') #, options=pipeline_options)
   (p | 'ReadInputTripletDicts' >> beam.Create(triplet_dicts)  # pylint: disable=expression-not-assigned
    | 'GenerateSingleExample' >> beam.ParDo(util.ExampleGenerator(_INTERPOLATOR_IMAGES_MAP, scale_factor=_SCALE_FACTOR.value))
    | 'WriteToTFRecord' >> beam.io.tfrecordio.WriteToTFRecord(file_path_prefix=_OUTPUT_TFRECORD_FILEPATH.value, num_shards=_NUM_SHARDS.value, coder=beam.coders.BytesCoder()))
